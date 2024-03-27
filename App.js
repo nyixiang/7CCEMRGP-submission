@@ -2,9 +2,39 @@ import React, { useEffect, useState, useRef } from 'react';
 import { StatusBar, StyleSheet, Text, View, Pressable, I18nManager} from 'react-native';
 import Svg, { Line } from 'react-native-svg';
 import { FontAwesome5 } from '@expo/vector-icons';
+import { FontAwesome6 } from '@expo/vector-icons';
 import { Ionicons } from '@expo/vector-icons';
 import { bleRequestBluetoothPermission, bleScanAndConnect, bleStartMonitoring, bleWriteString } from './BluetoothFunctions';
 import * as Updates from "expo-updates";
+import { useFonts } from 'expo-font';
+
+const CounterComponent = ({ bleTargetTheta, decrement, increment }) => {
+  return (
+    <View style={styles.buttonContainer}>
+      <Pressable
+        onPress={decrement}
+        style={({ pressed }) => [
+          styles.button,
+          pressed ? styles.buttonPressed : null,
+        ]}
+      >
+        <FontAwesome6 name="minus" size={24} color="black" />
+      </Pressable>
+      <View style={styles.numberContainer}>
+        <Text style={styles.number}>{bleTargetTheta}°</Text>
+      </View>
+      <Pressable
+        onPress={increment}
+        style={({ pressed }) => [
+          styles.button,
+          pressed ? styles.buttonPressed : null,
+        ]}
+      >
+        <FontAwesome6 name="plus" size={24} color="black" />
+      </Pressable>
+    </View>
+  );
+};
 
 export default function App() {
   const [bleData, setBleData] = useState(JSON.parse("{}"));
@@ -12,7 +42,11 @@ export default function App() {
   const [theta, setTheta] = useState(-90); // Angle in degrees for simplicity
   const targetTheta = useRef(-90);
   const animationFrame = useRef();
-  const [bleStatus, setBleStatus] = useState("Not Connected");
+  const [bleStatus, setBleStatus] = useState("BLE Not Connected");
+  const bleTargetTheta = 10;
+  const [fontsLoaded] = useFonts({
+    'Merriweather': require('./assets/fonts/Merriweather/Merriweather-Regular.ttf'),
+  });
 
   useEffect(() => {
     // Defines animateLine within the useEffect hook to ensure it's always in scope when used
@@ -89,20 +123,16 @@ export default function App() {
 
   return (
     <View style={styles.container}>
-      <Text>{bleStatus}</Text>
+      <Text style={{ fontFamily: 'Merriweather', fontSize: 14 }}>{bleStatus}</Text>
       <Svg height="50%" width="50%" viewBox="0 0 100 100">
         <Line x1={x1.toString()} y1={y1.toString()} x2={x2.toString()} y2={y2.toString()} stroke="blue" strokeWidth="2.5" />
       </Svg>
       <StatusBar style="auto" />
-      <View style={styles.horizontalLayout}>
-        <Pressable onPress={() => bleWriteString('down')}>
-          <FontAwesome5 name="arrow-circle-down" size={128} color="black" />
-        </Pressable>
-        <Text>{targetTheta.current}</Text>
-        <Pressable onPress={() => bleWriteString('up')}>
-          <FontAwesome5 name="arrow-circle-up" size={128} color="black" />
-        </Pressable>
-      </View>
+      <CounterComponent
+        bleTargetTheta={bleTargetTheta}
+        decrement={() => bleWriteString('down')}
+        increment={() => bleWriteString('up')}
+      />
       <Pressable style={styles.restartButton} onPress={initiateBLEConnection}>
         <Ionicons name="reload-circle" size={51} color="red" />
       </Pressable>
@@ -126,5 +156,40 @@ const styles = StyleSheet.create({
     flexDirection: 'row', // Align children horizontally
     justifyContent: 'center', // Center children horizontally
     alignItems: 'center', // Center children vertically (in the cross axis)
+    backgroundColor: '#dddddd',
+  },
+  fixedSizeView: {
+    width: 100, // Fixed width
+    height: 50, // Fixed height, adjust as necessary
+    justifyContent: 'center', // Centers the text vertically
+    alignItems: 'center', // Centers the text horizontally
+  },
+  buttonContainer: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#dddddd',
+    borderRadius: 30,
+  },
+  button: {
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#cccccc', // Slightly darker to distinguish the button
+    borderRadius: 30,
+  },
+  buttonPressed: {
+    opacity: 0.5,
+  },
+  numberContainer: {
+    paddingHorizontal: 30,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#dddddd', // Same as buttonContainer for a unified look
+  },
+  number: {
+    fontFamily: 'Merriweather',
+    fontSize: 30,
   },
 });
