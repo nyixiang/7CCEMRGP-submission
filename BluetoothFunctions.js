@@ -89,20 +89,20 @@ export const bleStartMonitoring = async (setDataCallback) => {
 
 
 export const bleWriteString = async (stringToSend) => {
-  console.log('Sending', stringToSend, '...')
+  console.log('Sending', stringToSend, '...');
   try {
-    // Convert the string 'up' to Base64
     const dataToSend = base64encode(stringToSend);
 
-    // Write the Base64 encoded string to the characteristic
     await nimble.writeCharacteristicWithResponseForService(
       serviceUUID,
       characteristicUUID,
-      dataToSend // The Base64 encoded data
+      dataToSend
     );
 
     console.log('Data sent successfully:', stringToSend);
+    return true;
   } catch (error) {
     console.error('Error sending data:', error);
+    return false;
   }
 };

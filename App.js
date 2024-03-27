@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { StatusBar, StyleSheet, Text, View, Pressable, I18nManager, Image} from 'react-native';
+import { StatusBar, StyleSheet, Text, View, Pressable, I18nManager, Image, Switch} from 'react-native';
 import Svg, { Line } from 'react-native-svg';
 import { FontAwesome5 } from '@expo/vector-icons';
 import { FontAwesome6 } from '@expo/vector-icons';
@@ -8,11 +8,21 @@ import { bleRequestBluetoothPermission, bleScanAndConnect, bleStartMonitoring, b
 import * as Updates from "expo-updates";
 import { useFonts } from 'expo-font';
 
-const CounterComponent = ({ bleTargetTheta, decrement, increment }) => {
+const CounterComponent = ({ bleTargetTheta, decrement, increment, isEnabled }) => {
   return (
     <View style={styles.buttonContainer}>
+      {!isEnabled && (
+        <View
+          style={{
+            ...StyleSheet.absoluteFillObject,
+            backgroundColor: 'rgba(255,255,255,0.5)', // Adjust the opacity as needed
+            zIndex: 1, // Make sure it covers the content
+          }}
+        />
+      )}
       <Pressable
         onPress={decrement}
+        disabled={!isEnabled}
         style={({ pressed }) => [
           styles.button,
           pressed ? styles.buttonPressed : null,
@@ -25,6 +35,7 @@ const CounterComponent = ({ bleTargetTheta, decrement, increment }) => {
       </View>
       <Pressable
         onPress={increment}
+        disabled={!isEnabled}
         style={({ pressed }) => [
           styles.button,
           pressed ? styles.buttonPressed : null,
@@ -38,15 +49,53 @@ const CounterComponent = ({ bleTargetTheta, decrement, increment }) => {
 
 export default function App() {
   const [bleData, setBleData] = useState(JSON.parse("{}"));
-  const [isActuated, setIsActuated] = useState(false);
   const [theta, setTheta] = useState(-90); // Angle in degrees for simplicity
   const targetTheta = useRef(-90);
+  const [bleTargetTheta, setBleTargetTheta] = useState(0);
   const animationFrame = useRef();
   const [bleStatus, setBleStatus] = useState("BLE Not Connected");
-  const bleTargetTheta = 10;
+  const [isManual, setIsManual] = useState(false);
+  
   const [fontsLoaded] = useFonts({
     'Merriweather': require('./assets/fonts/Merriweather/Merriweather-Regular.ttf'),
   });
+
+  async function incrementTheta() {
+    if (bleTargetTheta < 90) {
+      try {
+        const success = await bleWriteString('up');
+        if (success) {
+          setBleTargetTheta(prevTheta => prevTheta + 5);
+        }
+      } catch (error) {
+        console.error('The write operation failed:', error);
+      }
+    }
+  }
+
+  async function decrementTheta() {
+    if (bleTargetTheta >= 0) {
+      try {
+        const success = await bleWriteString('down');
+        if (success) {
+          setBleTargetTheta(prevTheta => prevTheta - 5);
+        }
+      } catch (error) {
+        console.error('The write operation failed:', error);
+      }
+    }
+  }
+
+  async function toggleManualSwitch() {
+    try {
+      const success = await bleWriteString('toggle');
+      if (success) {
+        setIsManual(previousState => !previousState);
+      }
+    } catch (error) {
+      console.error('The write operation failed:', error);
+    }
+  }
 
   useEffect(() => {
     // Defines animateLine within the useEffect hook to ensure it's always in scope when used
@@ -72,16 +121,16 @@ export default function App() {
     };
   }, []); // Ensures the effect runs once on mount
 
-  useEffect(() => {
-    // Updates targetTheta periodically without directly calling animateLine
-    const interval = setInterval(() => {
-      targetTheta.current = -Math.random() * 90; // Sets a new target angle
-      console.log('Set theta:', targetTheta.current);
-      // No direct call to animateLine here; the animation loop is already running
-    }, 2000);
+  // useEffect(() => {
+  //   // Updates targetTheta periodically without directly calling animateLine
+  //   const interval = setInterval(() => {
+  //     targetTheta.current = -Math.random() * 90; // Sets a new target angle
+  //     console.log('Set theta:', targetTheta.current);
+  //     // No direct call to animateLine here; the animation loop is already running
+  //   }, 2000);
 
-    return () => clearInterval(interval);
-  }, []);
+  //   return () => clearInterval(interval);
+  // }, []);
 
   // Initialize BLE connection and permissions
   const initiateBLEConnection = async () => {
@@ -100,6 +149,10 @@ export default function App() {
             // console.log('Monitored data:', data);
             setBleData(JSON.parse(data));
           });
+
+          // Reset the state of the app
+          setBleTargetTheta(0);
+          setIsManual(false);
         }
       } else {
         console.log('No permissions to start scan');
@@ -124,7 +177,7 @@ export default function App() {
 
   // console.log('Theta:', theta);
 
-  const displayTheta = -theta + 270;
+  const displayTheta = -theta + 280;
 
   const dynamicHandStyle = {
     ...styles.hand,
@@ -139,8 +192,13 @@ export default function App() {
 
   return (
     <View style={styles.container}>
-      <Text style={{ fontFamily: 'Merriweather', fontSize: 14 }}>{bleStatus}</Text>
-      <View style={styles.bodyContainercontainer}>
+      <Text style={{
+        fontFamily: 'Merriweather',
+        fontSize: 14,
+        position: 'absolute',
+        top: 35,
+      }}>{bleStatus}</Text>
+      <View style={styles.bodyContainer}>
         <Image
           source={require('./assets/hand.png')}
           style={dynamicHandStyle}
@@ -152,24 +210,36 @@ export default function App() {
           resizeMode="contain"
         />
     </View>
-      {/* <Svg height="50%" width="50%" viewBox="0 0 100 100">
-        <Line x1={x1.toString()} y1={y1.toString()} x2={x2.toString()} y2={y2.toString()} stroke="blue" strokeWidth="2.5" />
-      </Svg> */}
       <StatusBar style="auto" />
+      <View style={styles.horizontalLayout}>
+        <Text style={{fontFamily: "Merriweather"}}>
+          {isManual ? "Mode: Manual      " : "Mode: Automatic   "}
+        </Text>
+        <Switch
+          onValueChange={toggleManualSwitch}
+          value={isManual}
+        />
+      </View>
       <CounterComponent
         bleTargetTheta={bleTargetTheta}
-        decrement={() => bleWriteString('down')}
-        increment={() => bleWriteString('up')}
+        decrement={decrementTheta}
+        increment={incrementTheta}
+        isEnabled={isManual}
       />
-      <Pressable style={styles.restartButton} onPress={initiateBLEConnection}>
-        <Ionicons name="reload-circle" size={51} color="red" />
+      <Pressable
+        onPress={initiateBLEConnection}
+        style={({ pressed }) => [
+          styles.restartButton,
+          pressed ? styles.buttonPressed : null,
+        ]}>
+        <Ionicons name="reload-circle" size={51} color="blue"/>
       </Pressable>
     </View>
   );
 }
 
 const tx = 10;
-const ty = 70;
+const ty = 60;
 
 const styles = StyleSheet.create({
   container: {
@@ -187,7 +257,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row', // Align children horizontally
     justifyContent: 'center', // Center children horizontally
     alignItems: 'center', // Center children vertically (in the cross axis)
-    backgroundColor: '#dddddd',
   },
   fixedSizeView: {
     width: 100, // Fixed width
@@ -225,6 +294,7 @@ const styles = StyleSheet.create({
   },
   bodyContainer: {
     position: 'relative',
+    padding: 20,
   },
   body: {
     width: '100%',
@@ -238,7 +308,7 @@ const styles = StyleSheet.create({
     height: undefined,
     aspectRatio: 1,
     resizeMode: 'contain',
-    top: '20%',
-    left: '41%',
+    top: '26%',
+    left: '47%',
   },
 });
