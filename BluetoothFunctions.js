@@ -4,10 +4,12 @@ import { decode as base64decode, encode as base64encode } from 'base-64';
 
 // Initialize a new BLE manager instance
 const manager = new BleManager();
-var bledevice = null
+const serviceUUID = 'b2bbc642-46da-11ed-b878-0242ac120002';
+const characteristicUUID = 'c9af9c76-46de-11ed-b878-0242ac120002';
+let nimble = null;
 
 // Function to request necessary Bluetooth permissions for Android (no-op for iOS)
-export const requestBluetoothPermission = async () => {
+export const bleRequestBluetoothPermission = async () => {
   if (Platform.OS === 'ios') {
     // iOS permissions are handled in the project settings and plist
     return true;
@@ -29,16 +31,20 @@ export const requestBluetoothPermission = async () => {
 };
 
 // Function to start scanning for BLE devices and establish a connection
-export const scanAndConnect = async (setDataCallback) => {
-  manager.state().then((state) => {
-    if (state !== 'PoweredOn') {
-      console.log('Bluetooth is not powered on');
-      return;
-    }
+export const bleScanAndConnect = async () => {
+  const state = await manager.state();
+  if (state !== 'PoweredOn') {
+    console.log('Bluetooth is not powered on');
+    throw new Error('Bluetooth is not powered on');
+  }
 
-    manager.startDeviceScan(null, null, (error, device) => {
+  return new Promise((resolve, reject) => {
+    console.log('Scanning device');
+    manager.startDeviceScan(null, null, async (error, device) => {
       if (error) {
         console.log('Scan error:', error);
+        manager.stopDeviceScan();
+        reject(error);
         return;
       }
 
@@ -46,56 +52,50 @@ export const scanAndConnect = async (setDataCallback) => {
       if (device && device.name === 'nimble-ble') {
         console.log('Device found:', device.name);
         manager.stopDeviceScan();
-
-        device.connect({requestMTU: 187})
-          .then((device) => {
-            console.log('Device connected');
-            bledevice = device
-            return device.discoverAllServicesAndCharacteristics();
-          })
-          .then((device) => {
-            // Insert logic here to interact with the device, e.g., subscribe to notifications
-            // This is an example to read from a characteristic
-            const serviceUUID = 'b2bbc642-46da-11ed-b878-0242ac120002';
-            const characteristicUUID = 'c9af9c76-46de-11ed-b878-0242ac120002';
-            return device.monitorCharacteristicForService(serviceUUID, characteristicUUID, (error, characteristic) => {
-                if (error) {
-                    console.error('Monitoring error:', error);
-                    return;
-                }
-                    // Characteristic value has changed
-                    const data = base64decode(characteristic.value);
-                    console.log('Received data:', data);
-                    setDataCallback(data); // Update state or handle data as needed
-                });
-            })
-          .then((readCharacteristic) => {
-            // Use the data from the characteristic as needed
-            const data = base64decode(readCharacteristic.value);
-            console.log('Received data:', data);
-            setDataCallback(data); // Update state or handle data as needed
-          })
-          .catch((error) => {
-            console.error('Connection error:', error);
-          });
+        try {
+          const connectedDevice = await device.connect({requestMTU: 187});
+          nimble = connectedDevice;
+          console.log('Device connected:', nimble.name);
+          await connectedDevice.discoverAllServicesAndCharacteristics();
+          resolve(connectedDevice); // Resolve the promise with the connected device
+        } catch (connectionError) {
+          console.error('Connection error:', connectionError);
+          reject(connectionError);
+        }
+      } else {
+        console.log('No device found');
       }
     });
   });
 };
 
-export const bleSendString = async (stringToSend) => {
-  console.log('bledevice', bledevice)
+export const bleStartMonitoring = async (setDataCallback) => {
+  console.log('Attemping to start monitoring')
+  try {
+    await nimble.monitorCharacteristicForService(serviceUUID, characteristicUUID, (error, characteristic) => {
+      if (error) {
+        console.error('Monitoring error:', error);
+        return;
+      }
+      // Characteristic value has changed
+      const data = base64decode(characteristic.value);
+      console.log('Received data:', data);
+      setDataCallback(data); // Update state or handle data as needed
+    });
+  } catch (error) {
+    console.error('Error setting up monitoring:', error);
+  }
+};
+
+
+export const bleWriteString = async (stringToSend) => {
   console.log('Sending', stringToSend, '...')
   try {
-    // The UUIDs for the service and characteristic you want to write to
-    const serviceUUID = 'b2bbc642-46da-11ed-b878-0242ac120002';
-    const characteristicUUID = 'c9af9c76-46de-11ed-b878-0242ac120002';
-
     // Convert the string 'up' to Base64
     const dataToSend = base64encode(stringToSend);
 
     // Write the Base64 encoded string to the characteristic
-    await bledevice.writeCharacteristicWithResponseForService(
+    await nimble.writeCharacteristicWithResponseForService(
       serviceUUID,
       characteristicUUID,
       dataToSend // The Base64 encoded data
