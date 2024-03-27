@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { StatusBar, StyleSheet, Text, View, Pressable, I18nManager} from 'react-native';
+import { StatusBar, StyleSheet, Text, View, Pressable, I18nManager, Image} from 'react-native';
 import Svg, { Line } from 'react-native-svg';
 import { FontAwesome5 } from '@expo/vector-icons';
 import { FontAwesome6 } from '@expo/vector-icons';
@@ -72,15 +72,16 @@ export default function App() {
     };
   }, []); // Ensures the effect runs once on mount
 
-  // useEffect(() => {
-  //   // Updates targetTheta periodically without directly calling animateLine
-  //   const interval = setInterval(() => {
-  //     targetTheta.current = -Math.random() * 90; // Sets a new target angle
-  //     // No direct call to animateLine here; the animation loop is already running
-  //   }, 2000);
+  useEffect(() => {
+    // Updates targetTheta periodically without directly calling animateLine
+    const interval = setInterval(() => {
+      targetTheta.current = -Math.random() * 90; // Sets a new target angle
+      console.log('Set theta:', targetTheta.current);
+      // No direct call to animateLine here; the animation loop is already running
+    }, 2000);
 
-  //   return () => clearInterval(interval);
-  // }, []);
+    return () => clearInterval(interval);
+  }, []);
 
   // Initialize BLE connection and permissions
   const initiateBLEConnection = async () => {
@@ -115,18 +116,45 @@ export default function App() {
   }
 
   // Calculate line end points based on theta
-  const radius = 100.0;
-  const x1 = 5, y1 = 5;
-  const radianTheta = theta * (Math.PI / 180.0); // Convert theta to radians
-  const x2 = radius * Math.cos(radianTheta) + x1;
-  const y2 = -radius * Math.sin(radianTheta) + y1;
+  // const radius = 100.0;
+  // const x1 = 5, y1 = 5;
+  // const radianTheta = theta * (Math.PI / 180.0); // Convert theta to radians
+  // const x2 = radius * Math.cos(radianTheta) + x1;
+  // const y2 = -radius * Math.sin(radianTheta) + y1;
+
+  // console.log('Theta:', theta);
+
+  const displayTheta = -theta + 270;
+
+  const dynamicHandStyle = {
+    ...styles.hand,
+    transform: [
+      { translateY: -ty },
+      { translateX: -tx },
+      { rotate: `${displayTheta}deg` }, // Apply the dynamic rotation
+      { translateY: ty },
+      { translateX: tx },
+    ],
+  };
 
   return (
     <View style={styles.container}>
       <Text style={{ fontFamily: 'Merriweather', fontSize: 14 }}>{bleStatus}</Text>
-      <Svg height="50%" width="50%" viewBox="0 0 100 100">
+      <View style={styles.bodyContainercontainer}>
+        <Image
+          source={require('./assets/hand.png')}
+          style={dynamicHandStyle}
+          resizeMode="contain"
+        />
+        <Image
+          source={require('./assets/body.png')}
+          style={styles.body}
+          resizeMode="contain"
+        />
+    </View>
+      {/* <Svg height="50%" width="50%" viewBox="0 0 100 100">
         <Line x1={x1.toString()} y1={y1.toString()} x2={x2.toString()} y2={y2.toString()} stroke="blue" strokeWidth="2.5" />
-      </Svg>
+      </Svg> */}
       <StatusBar style="auto" />
       <CounterComponent
         bleTargetTheta={bleTargetTheta}
@@ -139,6 +167,9 @@ export default function App() {
     </View>
   );
 }
+
+const tx = 10;
+const ty = 70;
 
 const styles = StyleSheet.create({
   container: {
@@ -191,5 +222,23 @@ const styles = StyleSheet.create({
   number: {
     fontFamily: 'Merriweather',
     fontSize: 30,
+  },
+  bodyContainer: {
+    position: 'relative',
+  },
+  body: {
+    width: '100%',
+    height: undefined,
+    aspectRatio: 1,
+    resizeMode: 'contain',
+  },
+  hand: {
+    position: 'absolute',
+    width: '43%',
+    height: undefined,
+    aspectRatio: 1,
+    resizeMode: 'contain',
+    top: '20%',
+    left: '41%',
   },
 });
