@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { StatusBar, StyleSheet, Text, View, Pressable, I18nManager, Image, Switch} from 'react-native';
+import { StatusBar, StyleSheet, Text, View, Pressable, I18nManager, Image, Switch, ActivityIndicator} from 'react-native';
 import Svg, { Line } from 'react-native-svg';
 import { FontAwesome5 } from '@expo/vector-icons';
 import { FontAwesome6 } from '@expo/vector-icons';
@@ -15,7 +15,7 @@ const CounterComponent = ({ bleTargetTheta, decrement, increment, isEnabled }) =
         <View
           style={{
             ...StyleSheet.absoluteFillObject,
-            backgroundColor: 'rgba(255,255,255,0.5)', // Adjust the opacity as needed
+            backgroundColor: 'rgba(255,255,255,0.5)',
             zIndex: 1, // Make sure it covers the content
           }}
         />
@@ -49,23 +49,43 @@ const CounterComponent = ({ bleTargetTheta, decrement, increment, isEnabled }) =
 
 export default function App() {
   const [bleData, setBleData] = useState(JSON.parse("{}"));
-  const [theta, setTheta] = useState(-90); // Angle in degrees for simplicity
+  const [theta, setTheta] = useState(-90);
   const targetTheta = useRef(-90);
   const [bleTargetTheta, setBleTargetTheta] = useState(0);
   const animationFrame = useRef();
   const [bleStatus, setBleStatus] = useState("BLE Not Connected");
   const [isManual, setIsManual] = useState(false);
+
+  useEffect(() => {
+    const animateLine = () => {
+      animationFrame.current = requestAnimationFrame(() => {
+        animateLine(); // Recursively calls itself to continue the animation
+      });
+    };
+
+    animateLine(); // Initially starts the animation loop
+
+    return () => {
+      if (animationFrame.current) {
+        cancelAnimationFrame(animationFrame.current); // Cleans up on component unmount
+      }
+    };
+  }, []); // Ensures the effect runs once on mount
   
   const [fontsLoaded] = useFonts({
-    'Merriweather': require('./assets/fonts/Merriweather/Merriweather-Regular.ttf'),
+    'Merriweather': require('./assets/fonts/merriweather-otf/Merriweather-Regular.otf'),
   });
+
+  if (!fontsLoaded) {
+    return <ActivityIndicator size="large" />;
+  }
 
   async function incrementTheta() {
     if (bleTargetTheta < 90) {
       try {
         const success = await bleWriteString('up');
         if (success) {
-          setBleTargetTheta(prevTheta => prevTheta + 5);
+          setBleTargetTheta(prevTheta => prevTheta + 30);
         }
       } catch (error) {
         console.error('The write operation failed:', error);
@@ -74,11 +94,11 @@ export default function App() {
   }
 
   async function decrementTheta() {
-    if (bleTargetTheta >= 0) {
+    if (bleTargetTheta > 0) {
       try {
         const success = await bleWriteString('down');
         if (success) {
-          setBleTargetTheta(prevTheta => prevTheta - 5);
+          setBleTargetTheta(prevTheta => prevTheta - 30);
         }
       } catch (error) {
         console.error('The write operation failed:', error);
@@ -97,30 +117,7 @@ export default function App() {
     }
   }
 
-  useEffect(() => {
-    // Defines animateLine within the useEffect hook to ensure it's always in scope when used
-    const animateLine = () => {
-      animationFrame.current = requestAnimationFrame(() => {
-        setTheta((prevTheta) => {
-          const step = 0.1; // Adjust step size for smoother or faster animation
-          const deltaTheta = targetTheta.current - prevTheta;
-          // Calculate the next step towards the target
-          return prevTheta + deltaTheta * step;
-        });
-
-        animateLine(); // Recursively calls itself to continue the animation
-      });
-    };
-
-    animateLine(); // Initially starts the animation loop
-
-    return () => {
-      if (animationFrame.current) {
-        cancelAnimationFrame(animationFrame.current); // Cleans up on component unmount
-      }
-    };
-  }, []); // Ensures the effect runs once on mount
-
+  // Uncomment to test animation with synthetically generated data
   // useEffect(() => {
   //   // Updates targetTheta periodically without directly calling animateLine
   //   const interval = setInterval(() => {
@@ -138,13 +135,12 @@ export default function App() {
       const hasPermission = await bleRequestBluetoothPermission();
       if (hasPermission) {
         console.log('START bleScanAndConnect()');
-        const device = await bleScanAndConnect(); // This can throw if the promise is rejected
+        const device = await bleScanAndConnect();
         console.log('END bleScanAndConnect()');
   
         console.log('Connected device:', device);
         setBleStatus("Connected to: " + device.name)
         if (device) {
-          // Set up monitoring here using the dedicated function
           bleStartMonitoring((data) => {
             // console.log('Monitored data:', data);
             setBleData(JSON.parse(data));
@@ -152,7 +148,7 @@ export default function App() {
 
           // Reset the state of the app
           setBleTargetTheta(0);
-          setIsManual(false);
+          setIsManual(false)
         }
       } else {
         console.log('No permissions to start scan');
@@ -254,15 +250,15 @@ const styles = StyleSheet.create({
     top: 20
   },
   horizontalLayout: {
-    flexDirection: 'row', // Align children horizontally
-    justifyContent: 'center', // Center children horizontally
-    alignItems: 'center', // Center children vertically (in the cross axis)
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   fixedSizeView: {
-    width: 100, // Fixed width
-    height: 50, // Fixed height, adjust as necessary
-    justifyContent: 'center', // Centers the text vertically
-    alignItems: 'center', // Centers the text horizontally
+    width: 100,
+    height: 50,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   buttonContainer: {
     flexDirection: 'row',
@@ -276,7 +272,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#cccccc', // Slightly darker to distinguish the button
+    backgroundColor: '#cccccc',
     borderRadius: 30,
   },
   buttonPressed: {
@@ -286,7 +282,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 30,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#dddddd', // Same as buttonContainer for a unified look
+    backgroundColor: '#dddddd',
   },
   number: {
     fontFamily: 'Merriweather',

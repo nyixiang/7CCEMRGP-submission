@@ -48,7 +48,6 @@ export const bleScanAndConnect = async () => {
         return;
       }
 
-      // Example logic to connect to a specific device based on name or other identifier
       if (device && device.name === 'nimble-ble') {
         console.log('Device found:', device.name);
         manager.stopDeviceScan();
@@ -57,7 +56,7 @@ export const bleScanAndConnect = async () => {
           nimble = connectedDevice;
           console.log('Device connected:', nimble.name);
           await connectedDevice.discoverAllServicesAndCharacteristics();
-          resolve(connectedDevice); // Resolve the promise with the connected device
+          resolve(connectedDevice);
         } catch (connectionError) {
           console.error('Connection error:', connectionError);
           reject(connectionError);
@@ -80,7 +79,7 @@ export const bleStartMonitoring = async (setDataCallback) => {
       // Characteristic value has changed
       const data = base64decode(characteristic.value);
       console.log('Received data:', data);
-      setDataCallback(data); // Update state or handle data as needed
+      setDataCallback(data);
     });
   } catch (error) {
     console.error('Error setting up monitoring:', error);
